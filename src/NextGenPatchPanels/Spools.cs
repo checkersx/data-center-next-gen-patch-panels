@@ -34,7 +34,7 @@ namespace NextGenPatchPanels
         const float XpFactor = 2f;
         const float RefusalCooldown = 1.5f;
         static readonly Color MpoColour = new(0f, 0.75f, 0.8f);      // aqua
-        static readonly Color Cat6Colour = new(0.18f, 0.38f, 0.85f); // blue, like the bundles in the user's photo
+        static readonly Color Cat6Colour = new(0.18f, 0.38f, 0.85f); // blue, like a typical Cat6 bundle
 
         public static readonly List<SpoolType> Types = new();
         static bool _built;
@@ -82,18 +82,13 @@ namespace NextGenPatchPanels
         {
             var shopSOs = Resources.FindObjectsOfTypeAll<ShopItemSO>()
                 .Where(so => so != null && so.itemType == PlayerManager.ObjectInHand.CableSpinner).ToList();
-            foreach (var so in shopSOs.OrderBy(so => so.itemID))
-                NextGenPatchPanelsMod.Log.Msg($"Spool shop item {so.itemID}: '{so.itemName}', ${so.price}, {so.xpToUnlock} XP, custom colour {so.isCustomColor}.");
 
             // The vanilla spools of each cable type (MoreSpools' copies are 100+).
             var vanilla = new List<(int index, CableSpinner spinner)>();
             for (int i = 0; i < prefabs.Length && i < 100; i++)
             {
                 var s = prefabs[i] == null ? null : prefabs[i].GetComponent<CableSpinner>();
-                if (s == null) continue;
-                NextGenPatchPanelsMod.Log.Msg($"Vanilla spool [{i}] '{prefabs[i].name}': prefabID {s.prefabID}, cableType {s.cableType}, " +
-                                              $"{s.cableLenght} m, rgb '{s.rgbColor}', material '{s.cableMaterial?.name}'.");
-                vanilla.Add((i, s));
+                if (s != null) vanilla.Add((i, s));
             }
 
             // The MPO trunk is a copy of the plain fibre spool (a QSFP-type cable would fail the game's own check

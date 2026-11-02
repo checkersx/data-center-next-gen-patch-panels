@@ -20,6 +20,7 @@ namespace NextGenPatchPanels
         const int Spacing = 6;                // rack units between mount points
         const float DeviceHalfWidth = 0.25f;  // devices (with their rack ears) span x ±0.25
         const float WallThickness = 0.02f;
+        const float MountInset = 0.025f;      // a mount point's centre, in from the wall's collider
         const float ExitZ = 0.28f;            // the top pair sits towards the back of the rack (+z), where cables leave
 
         static GameObject _vanilla, _ours;
@@ -68,14 +69,22 @@ namespace NextGenPatchPanels
             // the side their ports face.
             var frame = positions[0].transform;
             var bounds = BoundsIn(go, frame);
-            float inner = Mathf.Min(bounds.max.x, -bounds.min.x) - WallThickness;
-            float x = Mathf.Clamp((DeviceHalfWidth + inner) / 2f, DeviceHalfWidth + 0.01f, 0.32f);
-            log.Msg($"Rack '{vanilla.name}': {positions.Length} positions from {Templates.V(Local(root, positions[0].transform.position))} " +
-                    $"to {Templates.V(Local(root, positions[positions.Length - 1].transform.position))}, " +
-                    $"bounds (device frame) {Templates.V(bounds.min)}..{Templates.V(bounds.max)}, {links.Length} cable links.");
-            foreach (var l in links.Take(24))
-                log.Msg($"  rack link '{l.name}' at {Templates.V(frame.InverseTransformPoint(l.transform.position))} " +
-                        $"rot {Templates.V((Quaternion.Inverse(frame.rotation) * l.transform.rotation).eulerAngles)} end={l.isStartOrEnd} parent='{l.transform.parent?.name}'");
+
+            // Mount points must sit in front of the side walls' colliders, or the look ray hits the wall
+            // first. The walls: tall colliders outside the devices' width that cover the middle of the rack.
+            float wall = float.MaxValue;
+            foreach (var c in go.GetComponentsInChildren<Collider>(true))
+            {
+                if (c.GetComponent<CableLink>() != null || c.GetComponent<RackPosition>() != null) continue;
+                var b = Templates.ColliderBounds(c, frame);
+                if (b == null || b.Value.size.y < 1f || b.Value.min.z > 0f || b.Value.max.z < 0f) continue;
+                if (b.Value.min.x > DeviceHalfWidth) wall = Mathf.Min(wall, b.Value.min.x);
+                if (b.Value.max.x < -DeviceHalfWidth) wall = Mathf.Min(wall, -b.Value.max.x);
+            }
+            float x = wall < 1f
+                ? wall - MountInset
+                : (DeviceHalfWidth + Mathf.Min(bounds.max.x, -bounds.min.x) - WallThickness) / 2f;
+            x = Mathf.Clamp(x, DeviceHalfWidth + 0.015f, 0.36f);
 
             var template = links.FirstOrDefault(l => !l.isStartOrEnd) ?? SceneHolder();
             if (template == null)
@@ -86,7 +95,8 @@ namespace NextGenPatchPanels
             }
             var templateRot = Quaternion.Inverse(frame.rotation) * template.transform.rotation;
             bool templateOnLeft = frame.InverseTransformPoint(template.transform.position).x < 0f;
-            log.Msg($"Mount points copy '{template.name}' (on the {(templateOnLeft ? "left" : "right")}), at x ±{x.ToString("F3", CultureInfo.InvariantCulture)}, every {Spacing} units.");
+            log.Msg($"Rack '{vanilla.name}': mount points copy '{template.name}', at x ±{x.ToString("F3", CultureInfo.InvariantCulture)} " +
+                    $"(side walls at ±{(wall < 1f ? wall.ToString("F3", CultureInfo.InvariantCulture) : "?")}), every {Spacing} units.");
 
             var group = new GameObject(GroupName);
             group.transform.SetParent(root, false);

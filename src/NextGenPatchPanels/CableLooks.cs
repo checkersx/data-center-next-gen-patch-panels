@@ -10,8 +10,8 @@ namespace NextGenPatchPanels
     // How trunk cables look. CablePositions.RedrawCable rebuilds a cable's "Cable_<id>" object from its path
     // with CreateTubeMesh, whose thickness is the cableWidth field. Around that call:
     //   MPO Trunk Fibre: one tube, thicker than a normal cable.
-    //   Pre-terminated Cat6 Trunk: seven normal-width strands following the same path (one in the middle, six
-    //   round it), with a strap round the bundle at every point it hangs from.
+    //   Pre-terminated Cat6 Trunk: 19 normal-width strands following the same path (hex-packed round one in the
+    //   middle), with a strap round the bundle at every point it hangs from.
     // A laid cable doesn't record its spool, so a trunk cable is recognised by its link (both ends on trunk
     // ports), which also covers cables loaded from a save.
     internal static class CableLooks
@@ -27,6 +27,19 @@ namespace NextGenPatchPanels
         static bool? _fibre;
         static bool _radiusLogged;
         static readonly Dictionary<int, Material> StrapMaterials = new();
+
+        // Strands round the middle one, hex-packed: 6 touching it, then 12 more (6 straight out, 6 in the
+        // gaps). 19 in all. Distances are in strand spacings.
+        static readonly (float distance, float angle)[] Strands = BuildStrands();
+
+        static (float, float)[] BuildStrands()
+        {
+            var list = new List<(float, float)>();
+            for (int s = 0; s < 6; s++) list.Add((1f, s * Mathf.PI / 3f));
+            for (int s = 0; s < 6; s++) list.Add((2f, s * Mathf.PI / 3f));
+            for (int s = 0; s < 6; s++) list.Add((Mathf.Sqrt(3f), (s + 0.5f) * Mathf.PI / 3f));
+            return list.ToArray();
+        }
 
         public static void RedrawCablePrefix(CablePositions __instance, int __0)
         {
@@ -76,13 +89,13 @@ namespace NextGenPatchPanels
             }
 
             var (tangents, normals, binormals) = Frames(pts);
+            float d = r * StrandSpacing;
             var meshes = new List<Mesh> { centre };
-            for (int s = 0; s < 6; s++)
+            foreach (var (distance, angle) in Strands)
             {
-                float a = s * Mathf.PI / 3f;
                 var strand = new Il2CppSystem.Collections.Generic.List<Vector3>();
                 for (int i = 0; i < pts.Count; i++)
-                    strand.Add(pts[i] + (Mathf.Cos(a) * normals[i] + Mathf.Sin(a) * binormals[i]) * (r * StrandSpacing));
+                    strand.Add(pts[i] + (Mathf.Cos(angle) * normals[i] + Mathf.Sin(angle) * binormals[i]) * (distance * d));
                 meshes.Add(cp.CreateTubeMesh(strand));
             }
 
@@ -90,7 +103,7 @@ namespace NextGenPatchPanels
             for (int i = 0; i < meshes.Count; i++) Object.Destroy(meshes[i]);
 
             var renderer = go.GetComponent<MeshRenderer>();
-            float bundleDiameter = 2f * (r * StrandSpacing + r);
+            float bundleDiameter = 2f * (2f * d + r);
             AddStraps(cp, id, go, pts, tangents, bundleDiameter * StrapOversize, StrapMaterial(renderer == null ? null : renderer.sharedMaterial));
         }
 

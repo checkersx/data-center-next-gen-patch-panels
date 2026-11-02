@@ -2,7 +2,7 @@ using System;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(NextGenPatchPanels.NextGenPatchPanelsMod), "Next-Gen Patch Panels", "0.2.0", "checkersx")]
+[assembly: MelonInfo(typeof(NextGenPatchPanels.NextGenPatchPanelsMod), "Next-Gen Patch Panels", "1.0.0", "checkersx")]
 [assembly: MelonGame("Waseku", "Data Center")]
 
 namespace NextGenPatchPanels
@@ -16,6 +16,7 @@ namespace NextGenPatchPanels
         internal static MelonLogger.Instance Log;
         internal static MelonPreferences_Entry<float> PortSpeed;
         internal static MelonPreferences_Entry<bool> MountPoints;
+        internal static MelonPreferences_Entry<bool> HideRackSlotsWhileCabling;
 
         const float RecheckInterval = 2f; // other mods (MoreSpools) rebuild the arrays we add to
         static float _nextCheck;
@@ -28,6 +29,8 @@ namespace NextGenPatchPanels
                 "Speed of a trunk panel's ports, in the game's units (2 = 10 Gbps). High means the cables at either end set the speed.");
             MountPoints = prefs.CreateEntry("RackMountPoints", true, "Cable mount points in racks",
                 "Adds cable holders down the inside walls of every rack, for routing trunk cables. Takes effect on the next start.");
+            HideRackSlotsWhileCabling = prefs.CreateEntry("HideRackSlotsWhileCabling", true, "Look past rack slots while cabling",
+                "While you hold a cable spool, rack slots don't get in the way of picking ports and holders inside a rack.");
             Patching.Install(HarmonyInstance);
         }
 
@@ -40,6 +43,7 @@ namespace NextGenPatchPanels
         {
             SaveCompat.RestoreIfStuck();
             Trunks.Update();
+            LookAssist.Update();
             if (Time.realtimeSinceStartup >= _nextCheck)
             {
                 _nextCheck = Time.realtimeSinceStartup + RecheckInterval;

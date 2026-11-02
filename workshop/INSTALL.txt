@@ -1,0 +1,69 @@
+Next-Gen Patch Panels for Data Center: how to install
+=====================================================
+
+USING WORKSHOPMODSYNC? Then you don't need these steps: it installs the mod
+for you each time the game starts. (You have it if your game folder's Plugins
+folder contains WorkshopModSync.dll.)
+
+WANT IT? WorkshopModSync is a free helper by Bloody on the Steam Workshop:
+  https://steamcommunity.com/sharedfiles/filedetails/?id=3830456292
+Set it up once (its page has a one-click installer), and Workshop code mods
+like this one install themselves from then on.
+
+Otherwise: this is a code mod. The Steam Workshop downloads it, but Data Center
+does not install code mods by itself, so you copy ONE file by hand.
+
+BEFORE YOU START (once, for any code mod)
+  - MelonLoader 0.7.3 must be installed for Data Center.
+  - A fix-up plugin (DS-InteropFix or Il2CppAssemblyFixer) must be installed,
+    or no code mods load at all.
+  If you already use other code mods, you most likely have both.
+
+INSTALL
+  1. Close the game.
+  2. Copy this file:
+         Mods\NextGenPatchPanels.dll     (in the folder you're looking at now)
+     into the Mods folder inside your game folder:
+         ...\steamapps\common\Data Center\Mods\
+     To open the game folder: in your Steam Library, right-click Data Center,
+     then Manage, then Browse local files.
+     Use the Mods folder next to "Data Center.exe", NOT the one inside
+     Data Center_Data\StreamingAssets.
+  3. Start the game.
+
+CHECK IT WORKED
+  - The MelonLoader console window shows "Next-Gen Patch Panels v1.0.0".
+  - The shop has Trunk Patch Panels below the patch panels, and trunk cables
+    below the cables.
+
+HOW TO USE
+  1. Rack a Trunk Patch Panel in each of two racks: copper with copper, or
+     fibre with fibre.
+  2. Hold the matching trunk cable: Pre-terminated Cat6 Trunk for copper
+     panels, MPO Trunk Fibre for fibre panels.
+  3. Click the trunk port on the back of one panel, route the cable (racks now
+     have cable holders down their inside walls), and click the trunk port on
+     the other panel. The game says "Trunk linked: 36 ports".
+  4. Port 1 on one panel now reaches port 1 on the other, and so on up to 36.
+     Cable your servers and switches into the ports as usual.
+
+SETTINGS
+  UserData\MelonPreferences.cfg in the game folder, section [NextGenPatchPanels]
+  (it appears after the first run with the mod; edit it with the game closed):
+    PortSpeed = 10000                  trunk panels never slow a link down
+    RackMountPoints = true             cable holders inside every rack
+    HideRackSlotsWhileCabling = true   lets you pick holders and trunk ports
+                                       inside a rack while holding a cable
+
+UPDATING
+  Steam downloads updates automatically. With the game closed, copy the new
+  NextGenPatchPanels.dll into the game's Mods folder again.
+
+UNINSTALLING
+  With the game closed, unsubscribe first (so WorkshopModSync doesn't copy it
+  back), then delete NextGenPatchPanels.dll from the game's Mods folder. Your
+  saves still load: trunk panels become normal patch panels and trunk cables
+  are dropped. Back up your save first.
+
+More help, and the source code (GPL-3.0):
+  https://github.com/checkersx/data-center-next-gen-patch-panels

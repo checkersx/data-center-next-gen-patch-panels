@@ -1,0 +1,143 @@
+<!doctype html>
+<!--
+  Source of workshop/preview.jpg (1024x1024): two pairs of trunk patch panels, a copper pair linked by a
+  strapped Cat6 trunk and a fibre pair linked by an MPO trunk, with the matching port lit on each side.
+  No game assets. Same look as Next-Gen Hardware's and Firewall Fix's previews.
+  Render with headless Edge, then convert the PNG to preview.jpg:
+    msedge --headless=new --disable-gpu --hide-scrollbars --window-size=1024,1024 --virtual-time-budget=3000 --screenshot=render.png file:///<path>/preview-scene.html
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; width: 1024px; height: 1024px; overflow: hidden; background: #010204; }
+  .canvas { position: relative; width: 1024px; height: 1024px; overflow: hidden; }
+  svg { position: absolute; inset: 0; }
+  .title {
+    position: absolute; top: 34px; left: 0; right: 0; text-align: center;
+    font-family: "Segoe UI Black", "Segoe UI", sans-serif; font-weight: 900; color: #fff;
+    line-height: 0.98; letter-spacing: 1px;
+    text-shadow: 0 0 28px rgba(40, 200, 220, 0.55), 0 0 4px rgba(190, 245, 255, 0.6), 0 6px 22px rgba(0, 0, 0, 0.9);
+  }
+  .title .l1 { font-size: 128px; }
+  .title .l2 { font-size: 104px; }
+  .rule {
+    position: absolute; top: 300px; left: 50%; width: 440px; margin-left: -220px; height: 3px; border-radius: 2px;
+    background: linear-gradient(90deg, transparent, #b8f4ff, transparent);
+    box-shadow: 0 0 14px 3px rgba(40, 200, 220, 0.5);
+  }
+  .tag {
+    position: absolute; top: 318px; left: 0; right: 0; text-align: center;
+    font-family: "Segoe UI Semibold", "Segoe UI", sans-serif; font-size: 34px; letter-spacing: 8px; color: #cfeff6;
+    text-shadow: 0 0 12px rgba(40, 200, 220, 0.5);
+  }
+  .label {
+    position: absolute; left: 0; right: 0; text-align: center;
+    font-family: "Segoe UI Semibold", "Segoe UI", sans-serif; font-size: 20px; letter-spacing: 4px; color: #93a9bf;
+  }
+</style>
+</head>
+<body>
+<div class="canvas">
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="62%" r="70%">
+      <stop offset="0" stop-color="#0c1a2c"/>
+      <stop offset="0.55" stop-color="#050b14"/>
+      <stop offset="1" stop-color="#010204"/>
+    </radialGradient>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a3e45"/>
+      <stop offset="1" stop-color="#1e2024"/>
+    </linearGradient>
+    <linearGradient id="top" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a2d33"/>
+      <stop offset="1" stop-color="#474c55"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="10"/></filter>
+
+    <!-- One 2U trunk panel, 360 x 68, ports drawn by the script below. -->
+    <g id="panel">
+      <polygon points="0,0 360,0 344,-12 16,-12" fill="url(#top)"/>
+      <rect x="0" y="0" width="360" height="68" rx="4" fill="url(#face)" stroke="#555b64" stroke-width="1"/>
+      <rect x="0" y="0" width="14" height="68" rx="3" fill="#2a2d32"/>
+      <rect x="346" y="0" width="14" height="68" rx="3" fill="#2a2d32"/>
+      <circle cx="7" cy="34" r="3.2" fill="#c9ccd1"/>
+      <circle cx="353" cy="34" r="3.2" fill="#c9ccd1"/>
+    </g>
+  </defs>
+
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <ellipse cx="512" cy="700" rx="430" ry="230" fill="#0f3a52" opacity="0.35" filter="url(#soft)"/>
+
+  <!-- Cat6 trunk: 5 strands over the copper pair, with straps. -->
+  <g id="cat6" fill="none" stroke-linecap="round">
+    <path d="M330 548 C330 410, 694 410, 694 548" stroke="#0d1d44" stroke-width="34" opacity="0.8"/>
+  </g>
+
+  <!-- MPO trunk under the fibre pair. -->
+  <path d="M330 834 C330 975, 694 975, 694 834" fill="none" stroke="#19c3cf" stroke-width="15" stroke-linecap="round" filter="url(#glow)"/>
+  <path d="M330 834 C330 975, 694 975, 694 834" fill="none" stroke="#a9f3f8" stroke-width="3" stroke-linecap="round" opacity="0.6" transform="translate(-3,-3)"/>
+
+  <g id="panels"></g>
+  <g id="straps"></g>
+</svg>
+<div class="title"><div class="l1">NEXT-GEN</div><div class="l2">PATCH PANELS</div></div>
+<div class="rule"></div>
+<div class="tag">36 PORTS · ONE CABLE</div>
+<div class="label" style="top: 380px">PRE-TERMINATED CAT6 TRUNK</div>
+<div class="label" style="top: 985px">MPO TRUNK FIBRE</div>
+</div>
+<script>
+  const ns = "http://www.w3.org/2000/svg";
+  const el = (name, attrs, parent) => {
+    const e = document.createElementNS(ns, name);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    parent.appendChild(e);
+    return e;
+  };
+
+  // Cat6 strands: the same curve offset diagonally, so they spread both where it runs up and where it runs across.
+  const cat6 = document.getElementById("cat6");
+  const curve = "M330 548 C330 410, 694 410, 694 548";
+  [-12, -6, 0, 6, 12].forEach((o, i) => {
+    el("path", { d: curve, stroke: "#173a94", "stroke-width": 10, transform: `translate(${o * 0.7},${o * 0.7})` }, cat6);
+    el("path", { d: curve, stroke: i % 2 ? "#3f72ec" : "#4a7ff2", "stroke-width": 6.5, transform: `translate(${o * 0.7},${o * 0.7})` }, cat6);
+  });
+  // Straps where it would hang: along the curve at t = 0.25, 0.5, 0.75, across it.
+  const straps = document.getElementById("straps");
+  [[386.9, 470.4, -26.8], [512, 444.5, 0], [637.1, 470.4, 26.8]].forEach(([x, y, a]) =>
+    el("rect", { x: -7, y: -27, width: 14, height: 54, rx: 3, fill: "#0f2a73", stroke: "#2a52b8", "stroke-width": 1.5,
+                 transform: `translate(${x},${y}) rotate(${a})` }, straps));
+
+  // Panels: two rows of 18 ports. Copper ports are white RJ45 sockets, fibre ports yellow LC duplex.
+  const panels = document.getElementById("panels");
+  const lit = 6; // the 7th port in each row lights up on both panels of a pair
+  function panel(x, y, fibre, glow) {
+    const g = el("g", { transform: `translate(${x},${y})` }, panels);
+    el("use", { href: "#panel" }, g);
+    for (let row = 0; row < 2; row++)
+      for (let i = 0; i < 18; i++) {
+        const px = 26 + i * 17.4 + (i >= 9 ? 4 : 0), py = 14 + row * 26;
+        if (i === lit) el("rect", { x: px - 6, y: py - 6, width: 24, height: 24, rx: 6, fill: glow, opacity: 0.85, filter: "url(#glow)" }, g);
+        if (fibre) {
+          el("rect", { x: px, y: py, width: 12, height: 12, rx: 1.5, fill: "#e0b81c" }, g);
+          el("rect", { x: px + 2, y: py + 3, width: 3.2, height: 6, fill: "#3b2f05" }, g);
+          el("rect", { x: px + 6.8, y: py + 3, width: 3.2, height: 6, fill: "#3b2f05" }, g);
+        } else {
+          el("rect", { x: px, y: py, width: 12, height: 12, rx: 1.5, fill: "#e8eaee" }, g);
+          el("rect", { x: px + 2, y: py + 3, width: 8, height: 6.5, fill: "#15171a" }, g);
+        }
+      }
+  }
+  panel(80, 552, false, "#4a7ff2");
+  panel(584, 552, false, "#4a7ff2");
+  panel(80, 762, true, "#19c3cf");
+  panel(584, 762, true, "#19c3cf");
+</script>
+</body>
+</html>

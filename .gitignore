@@ -3,5 +3,11 @@ obj/
 .vs/
 *.user
 
-# Private planning notes
+# Private planning notes; this repo is public
 NOTES.md
+
+# Screenshots not (yet) used in the docs
+_media/
+
+# Workshop upload output (built by workshop/build-package.ps1)
+publish/

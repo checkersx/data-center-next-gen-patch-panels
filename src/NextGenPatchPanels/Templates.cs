@@ -41,6 +41,9 @@ namespace NextGenPatchPanels
         const float BoxBehindPorts = 0.015f;  // the box's front stays this far behind the port face
         const float BoxHalfWidth = 0.240f;    // inside the tray's side walls
         const float BoxMargin = 0.001f;
+        const float ClickWidth = 0.035f;      // the trunk port's click box, in front of the box's back
+        const float ClickHeight = 0.025f;
+        const float ClickDepth = 0.02f;
         static readonly Color FibreTrunkColour = new(0f, 0.75f, 0.8f); // aqua, like OM3/OM4 MPO trunks
 
         public static readonly List<TrunkType> Types = new();
@@ -184,10 +187,12 @@ namespace NextGenPatchPanels
                 new Vector3(Mathf.Min(BoxHalfWidth * 2f, b.size.x - 2 * BoxMargin), b.size.y - 2 * BoxMargin, frontZ - backZ));
 
             // The trunk port: a copy of a port, turned to face the rack's front, on the middle of the box's back.
-            // Same spot as v0.1, so trunk cables in existing saves still find it.
+            // Keep it at this spot: saved trunk cables find their port by position.
             var donor = ports[ports.Length / 4];
             var rot = Quaternion.AngleAxis(180f, Vector3.up) * (Quaternion.Inverse(root.rotation) * donor.transform.rotation);
-            var trunk = MakeTrunkPort(root, donor, new Vector3(face.center.x, b.center.y, backZ - TrunkPortProud), rot, fibre, speed);
+            var trunkPos = new Vector3(face.center.x, b.center.y, backZ - TrunkPortProud);
+            var trunk = MakeTrunkPort(root, donor, trunkPos, rot, fibre, speed);
+            GiveClickBox(root, trunk, new Vector3(trunkPos.x, trunkPos.y, backZ - ClickDepth / 2f - 0.0005f));
 
             panel.patchPanelType = index;
 
@@ -231,6 +236,45 @@ namespace NextGenPatchPanels
 
             if (fibre) Tint(go, FibreTrunkColour);
             return link;
+        }
+
+        // The game picks the first collider its look ray hits. The copied port's own collider can sit behind
+        // its pivot, which (turned round to face the rack front) puts it inside the panel's body collider: the
+        // fibre port couldn't be picked. So the trunk port gets a box of its own, in front of the panel's back.
+        static void GiveClickBox(Transform root, CableLink trunk, Vector3 panelCentre)
+        {
+            foreach (var c in trunk.GetComponentsInChildren<Collider>(true)) c.enabled = false;
+            var t = trunk.transform;
+            var box = trunk.gameObject.AddComponent<BoxCollider>();
+            box.center = t.InverseTransformPoint(root.TransformPoint(panelCentre));
+            var size = t.InverseTransformVector(root.TransformVector(new Vector3(ClickWidth, ClickHeight, ClickDepth)));
+            box.size = new Vector3(Mathf.Abs(size.x), Mathf.Abs(size.y), Mathf.Abs(size.z));
+        }
+
+        // A collider's extent in another transform's space, from its own shape (Collider.bounds is empty on an
+        // inactive template).
+        public static Bounds? ColliderBounds(Collider c, Transform frame)
+        {
+            Bounds local;
+            var box = c.TryCast<BoxCollider>();
+            var mesh = c.TryCast<MeshCollider>();
+            var sphere = c.TryCast<SphereCollider>();
+            var capsule = c.TryCast<CapsuleCollider>();
+            if (box != null) local = new Bounds(box.center, box.size);
+            else if (mesh != null && mesh.sharedMesh != null) local = mesh.sharedMesh.bounds;
+            else if (sphere != null) local = new Bounds(sphere.center, Vector3.one * sphere.radius * 2f);
+            else if (capsule != null) local = new Bounds(capsule.center, new Vector3(capsule.radius * 2f, capsule.height, capsule.radius * 2f));
+            else return null;
+
+            Bounds? result = null;
+            for (int i = 0; i < 8; i++)
+            {
+                var corner = new Vector3((i & 1) == 0 ? local.min.x : local.max.x, (i & 2) == 0 ? local.min.y : local.max.y, (i & 4) == 0 ? local.min.z : local.max.z);
+                var p = frame.InverseTransformPoint(c.transform.TransformPoint(corner));
+                if (result == null) result = new Bounds(p, Vector3.zero);
+                else { var r = result.Value; r.Encapsulate(p); result = r; }
+            }
+            return result;
         }
 
         public static void Tint(GameObject go, Color colour)

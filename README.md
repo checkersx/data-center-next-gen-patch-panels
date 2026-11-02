@@ -2,7 +2,7 @@
 
 A mod for **Data Center** (by Waseku) that links a patch panel in one rack to a patch panel in another with **one trunk cable** instead of 36. Real data centres do exactly this, with MPO trunks and pre-terminated copper trunks.
 
-[Download from GitHub Releases](https://github.com/checkersx/data-center-next-gen-patch-panels/releases)
+**[Get it on the Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3832525698)** · [Download from GitHub Releases](https://github.com/checkersx/data-center-next-gen-patch-panels/releases)
 
 ![Next-Gen Patch Panels](workshop/preview.jpg)
 
@@ -55,7 +55,7 @@ You need these once, for any code mod in Data Center. If you already use other c
 There's one file: **`NextGenPatchPanels.dll`**. It goes in the **`Mods`** folder inside your game folder. To open the game folder: in your Steam Library, right-click **Data Center** → **Manage** → **Browse local files**. Use the `Mods` folder next to `Data Center.exe`, not the one inside `StreamingAssets`.
 
 - **From GitHub:** download `NextGenPatchPanels.dll` from the [Releases page](https://github.com/checkersx/data-center-next-gen-patch-panels/releases), put it in `Mods`, and start the game.
-- **From the Steam Workshop:** subscribe to the mod. If you have [WorkshopModSync](https://steamcommunity.com/sharedfiles/filedetails/?id=3830456292), that's all: start the game. Without it, start the game once and quit, then open `Data Center_Data` → `StreamingAssets` → `Mods` in your game folder, type `NextGenPatchPanels.dll` into File Explorer's search box, and copy the file it finds into your game's `Mods` folder.
+- **From the Steam Workshop:** subscribe on the [Workshop page](https://steamcommunity.com/sharedfiles/filedetails/?id=3832525698). If you have [WorkshopModSync](https://steamcommunity.com/sharedfiles/filedetails/?id=3830456292), that's all: start the game. Without it, start the game once and quit, then open `Data Center_Data` → `StreamingAssets` → `Mods` in your game folder, type `NextGenPatchPanels.dll` into File Explorer's search box, and copy the file it finds into your game's `Mods` folder.
 
 **Check it worked:** the MelonLoader console shows `Next-Gen Patch Panels v1.0.0`, and the shop has Trunk Patch Panels and trunk cables.
 

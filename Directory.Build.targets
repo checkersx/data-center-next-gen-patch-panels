@@ -1,0 +1,8 @@
+<Project>
+  <!-- Copy the built mod into the game's Mods folder. Skip with -p:Deploy=false.
+       Fails if the game is running (the DLL is locked); close the game first. -->
+  <Target Name="DeployToGame" AfterTargets="Build" Condition="'$(Deploy)' != 'false'">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(GameDir)\Mods" />
+    <Message Importance="high" Text="Deployed $(TargetFileName) to $(GameDir)\Mods" />
+  </Target>
+</Project>

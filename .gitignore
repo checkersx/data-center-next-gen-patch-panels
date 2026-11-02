@@ -1,0 +1,7 @@
+bin/
+obj/
+.vs/
+*.user
+
+# Private planning notes
+NOTES.md

@@ -15,7 +15,8 @@ namespace NextGenPatchPanels
             Patch(h, typeof(SaveSystem), nameof(SaveSystem.DeleteSaveFile), typeof(SaveCompat), null, nameof(SaveCompat.DeleteSaveFilePostfix));
             Patch(h, typeof(SaveSystem), nameof(SaveSystem.DeleteSaveFilesQuiet), typeof(SaveCompat), null, nameof(SaveCompat.DeleteSaveFilePostfix));
 
-            Patch(h, typeof(PatchPanel), nameof(PatchPanel.InsertedInRack), typeof(Trunks), nameof(Trunks.InsertedInRackPrefix), nameof(Trunks.InsertedInRackPostfix));
+            // Last: gregCore's postfix can change the panel's ID ("restored clone ID"); ports follow the final one.
+            Patch(h, typeof(PatchPanel), nameof(PatchPanel.InsertedInRack), typeof(Trunks), nameof(Trunks.InsertedInRackPrefix), nameof(Trunks.InsertedInRackPostfix), Priority.Last);
             Patch(h, typeof(PatchPanel), nameof(PatchPanel.GetPairedLink), typeof(Trunks), null, nameof(Trunks.GetPairedLinkPostfix));
             Patch(h, typeof(NetworkMap), nameof(NetworkMap.RegisterCableConnection), typeof(Trunks), null, nameof(Trunks.RegisterCableConnectionPostfix));
             Patch(h, typeof(NetworkMap), nameof(NetworkMap.RemoveCableConnection), typeof(Trunks), null, nameof(Trunks.RemoveCableConnectionPostfix));
@@ -26,7 +27,7 @@ namespace NextGenPatchPanels
             Patch(h, typeof(ShopItem), nameof(ShopItem.UpdateVisualState), typeof(ShopCards), null, nameof(ShopCards.RefreshTextPostfix));
         }
 
-        static void Patch(HarmonyLib.Harmony h, Type type, string method, Type patchType, string prefix, string postfix)
+        static void Patch(HarmonyLib.Harmony h, Type type, string method, Type patchType, string prefix, string postfix, int postfixPriority = -1)
         {
             try
             {
@@ -38,7 +39,7 @@ namespace NextGenPatchPanels
                 }
                 h.Patch(target,
                     prefix: prefix == null ? null : new HarmonyMethod(AccessTools.Method(patchType, prefix)),
-                    postfix: postfix == null ? null : new HarmonyMethod(AccessTools.Method(patchType, postfix)));
+                    postfix: postfix == null ? null : new HarmonyMethod(AccessTools.Method(patchType, postfix)) { priority = postfixPriority });
             }
             catch (Exception e)
             {

@@ -36,7 +36,7 @@ Take the trunk cable out and the panels unlink ([i]"Trunk unlinked"[/i]). Put it
 Data Center doesn't install code mods by itself. With [b]WorkshopModSync[/b] (a free helper by Bloody) it's subscribe and play. Without it, there's one file to copy.
 
 [h2]Before you install (once, for any code mod)[/h2]
-If you already use other code mods, you most likely have these. Otherwise:
+If you already use other code mods, you likely have these. Otherwise:
 [olist]
 [*][b]MelonLoader 0.7.3[/b] from [url=https://github.com/LavaGang/MelonLoader/releases]the MelonLoader releases page[/url]. Run the installer, point it at Data Center.exe, choose 0.7.3, install. Start the game once, then quit.
 [*][b]A fix-up plugin[/b], or no code mods load at all: [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3797166996]DS-InteropFix[/url] or [url=https://github.com/mleem97/Il2CppAssemblyFixer]Il2CppAssemblyFixer[/url]. Follow its own instructions.
@@ -72,7 +72,7 @@ Check: if the [b]Plugins[/b] folder in your game folder contains [b]WorkshopModS
 [h3]Way 4: without the Steam Workshop[/h3]
 Download [b]NextGenPatchPanels.dll[/b] from the [url=https://github.com/checkersx/data-center-next-gen-patch-panels/releases]GitHub releases page[/url] and put it in the [b]Mods[/b] folder in your game folder.
 
-[b]Check it worked:[/b] the MelonLoader console shows [b]Next-Gen Patch Panels v1.0.0[/b], and the shop has Trunk Patch Panels and trunk cables.
+[b]Check it worked:[/b] the MelonLoader console shows [b]Next-Gen Patch Panels v1.0.1[/b], and the shop has Trunk Patch Panels and trunk cables.
 
 [h2]Settings[/h2]
 In [b]UserData\MelonPreferences.cfg[/b] in your game folder (it appears after the first run with the mod), under [b][NextGenPatchPanels][/b]. Edit it with the game closed.
@@ -86,16 +86,17 @@ In [b]UserData\MelonPreferences.cfg[/b] in your game folder (it appears after th
 [list]
 [*]Saves stay vanilla. Trunk panels are saved as normal patch panels, and a small [i].nextgenpatchpanels.json[/i] file next to the save remembers which ones are trunk panels. A link is just the trunk cable, saved like any other cable.
 [*]Remove the mod and your saves still load: trunk panels become normal patch panels, trunk cables are dropped, and trunk cable spools left lying around disappear. Back up your save first.
+[*][b]1.0.1 fixes[/b] trunks linking the wrong panels, or none, after loading. Affected saves repair themselves.
 [/list]
 
 [h2]Can't pick a trunk port or holder?[/h2]
-Hold the cable, aim at it and press [b]F8[/b]. The MelonLoader log lists everything your aim passes through and what's in the way. Please open an issue on [url=https://github.com/checkersx/data-center-next-gen-patch-panels/issues]GitHub[/url] with [b]Data Center\MelonLoader\Latest.log[/b].
+Hold the cable, aim at it and press [b]F8[/b]. The MelonLoader log lists everything your aim passes through. Please open an issue on [url=https://github.com/checkersx/data-center-next-gen-patch-panels/issues]GitHub[/url] with [b]Data Center\MelonLoader\Latest.log[/b].
 
 [h2]Compatibility[/h2]
 [list]
 [*]Standalone: no gregCore or other framework needed.
 [*]Works alongside [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3829635443]Next-Gen Hardware[/url], [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3831754850]Firewall Fix[/url] and MoreSpools.
-[*][b]Co-op has never been tested.[/b] It should work in theory, as long as every player has the mod at the same version.
+[*][b]Co-op is untested.[/b] It should work if every player has the same version.
 [*]Rack templates (designer room) with trunk panels haven't been tested.
 [*]Tested on Steam build 25869593 of Data Center, with MelonLoader 0.7.3.
 [*]Not affiliated with Waseku.

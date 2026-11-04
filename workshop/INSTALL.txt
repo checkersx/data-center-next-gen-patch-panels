@@ -32,7 +32,7 @@ INSTALL
   3. Start the game.
 
 CHECK IT WORKED
-  - The MelonLoader console window shows "Next-Gen Patch Panels v1.0.0".
+  - The MelonLoader console window shows "Next-Gen Patch Panels v1.0.1".
   - The shop has Trunk Patch Panels below the patch panels, and trunk cables
     below the cables.
 

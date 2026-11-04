@@ -28,18 +28,25 @@ namespace NextGenPatchPanels
     // The link is made by a cable between the two panels' trunk ports, so the save stores it as an ordinary
     // cable. Cables already plugged into B are renamed (their CableInfo and their entry in NetworkMap) when
     // the link is made, and renamed back when the trunk cable is removed.
+    //
+    // Names on cables can go out of date. Two panels can end up with one ID (another mod gives a new panel an
+    // ID made from the spot it was delivered to, so two panels bought to one spot match), and the game then
+    // renames one of them on load while the cables in it keep the old name. So which panel and port a cable
+    // end belongs to is decided by where it is plugged in, and its name is corrected to match.
     internal static class Trunks
     {
         public const string TrunkSuffix = "_MPO";
         const float ReconcileDelay = 0.5f;   // seconds; lets the game finish whatever registered the cable
         const float AfterLoadDelay = 2f;
+        const float PortSnap = 0.01f;        // a cable end this close to a port is in it (ports are 2.5 cm apart)
+        const float TrunkSnap = 0.05f;       // the same for trunk ports (one per panel, panels are 2U high)
 
         static readonly Dictionary<int, Link> ByCable = new();
         static readonly Dictionary<string, Link> ByPanel = new();
         static readonly Dictionary<string, PatchPanel> LivePanels = new();
-        static readonly List<(Link link, bool linked)> Pending = new();
         static readonly HashSet<int> PendingRedraws = new();
         static float _reconcileAt = -1f;
+        static readonly List<string> _reconcileWhy = new();
         static bool _busy; // our own graph edits; don't treat them as the player's
 
         public static void Reset(string reason)
@@ -48,9 +55,9 @@ namespace NextGenPatchPanels
             ByCable.Clear();
             ByPanel.Clear();
             LivePanels.Clear();
-            Pending.Clear();
             PendingRedraws.Clear();
             _reconcileAt = -1f;
+            _reconcileWhy.Clear();
         }
 
         // The kind of trunk a cable is (for its look), or null if it isn't a trunk cable.
@@ -69,13 +76,15 @@ namespace NextGenPatchPanels
             catch (Exception e) { NextGenPatchPanelsMod.Log.Error($"InsertedInRackPrefix: {e}"); }
         }
 
+        // Patched with Priority.Last: another mod's postfix may change the panel's ID after the game set it,
+        // and the ports must be named after the ID the panel ends up with.
         public static void InsertedInRackPostfix(PatchPanel __instance)
         {
             try
             {
                 var t = Templates.Of(__instance);
                 if (t == null) return;
-                var id = __instance.patchPanelId;
+                var id = MakeIdUnique(__instance, t);
                 var ports = Ports(__instance);
 
                 // Vanilla named the pairs "<id>_1".."<id>_18"; give every port its own ID and device.
@@ -100,28 +109,53 @@ namespace NextGenPatchPanels
                 LivePanels[id] = __instance;
 
                 // Racked again while linked (the IDs were just reset): link it again.
-                if (ByPanel.TryGetValue(id, out var link))
+                var link = LinkOf(__instance);
+                if (link != null)
                 {
                     SetPortIds(link, true);
-                    Schedule(link, true, ReconcileDelay);
+                    Schedule(ReconcileDelay, "panel racked again");
                 }
             }
             catch (Exception e) { NextGenPatchPanelsMod.Log.Error($"InsertedInRackPostfix: {e}"); }
         }
 
+        // Two panels with one ID would share every port. The game only fixes that on load, and another mod gives
+        // a new panel an ID made from the spot it was delivered to, so a second panel bought to the same spot
+        // arrives with the first one's ID. The panel being racked gets a fresh ID (it has no cables yet).
+        static string MakeIdUnique(PatchPanel panel, TrunkType t)
+        {
+            var id = panel.patchPanelId;
+            if (string.IsNullOrEmpty(id)) return id;
+            var twin = PanelsInScene(false).FirstOrDefault(p => p.Pointer != panel.Pointer && p.patchPanelId == id);
+            if (twin == null) return id;
+            var fresh = panel.GenerateUniquePatchPanelId();
+            if (string.IsNullOrEmpty(fresh) || fresh == id) return id;
+            panel.patchPanelId = fresh;
+            NextGenPatchPanelsMod.Log.Msg($"{t.Label} '{id}' has the same ID as the panel at {Where(twin.transform.position)}; renamed to '{fresh}'.");
+            return fresh;
+        }
+
         // ---- making and breaking links ----
 
-        // Postfix on NetworkMap.RegisterCableConnection: a cable between two trunk ports links their panels.
-        public static void RegisterCableConnectionPostfix(int __0, string __5, string __6)
+        // Postfix on NetworkMap.RegisterCableConnection(cableId, startPos, endPos, startType, endType, startId,
+        // endId, ...): a cable between two trunk ports links their panels. The panels are found by the trunk
+        // ports the ends are plugged into; the names on the cable can be out of date.
+        public static void RegisterCableConnectionPostfix(int __0, Vector3 __1, Vector3 __2, string __5, string __6)
         {
             if (_busy || !IsTrunkId(__5) || !IsTrunkId(__6)) return;
             try
             {
-                var a = FindPanel(__5);
-                var b = FindPanel(__6);
+                var panels = PanelsInScene(true);
+                var a = PanelWithTrunkAt(panels, __1) ?? FindPanel(__5);
+                var b = PanelWithTrunkAt(panels, __2) ?? FindPanel(__6);
                 if (a == null || b == null)
                 {
                     NextGenPatchPanelsMod.Log.Warning($"Trunk cable {__0} between '{__5}' and '{__6}': {(a == null ? __5 : __6)} not found; not linked.");
+                    return;
+                }
+                if (a.Pointer == b.Pointer)
+                {
+                    NextGenPatchPanelsMod.Log.Warning($"Trunk cable {__0} has both ends on '{a.patchPanelId}'; not linked.");
                     return;
                 }
                 MakeLink(a, b, __0);
@@ -139,15 +173,15 @@ namespace NextGenPatchPanels
 
         static void MakeLink(PatchPanel a, PatchPanel b, int cableId)
         {
-            if (a.patchPanelId == b.patchPanelId) return;
             if (ByCable.TryGetValue(cableId, out var same) && IsSame(same, a, b)) return; // registered again, e.g. on load
 
             foreach (var p in new[] { a, b })
-                if (ByPanel.TryGetValue(p.patchPanelId, out var old))
-                {
-                    NextGenPatchPanelsMod.Log.Warning($"'{p.patchPanelId}' was still linked by cable {old.CableId}; dropping that link.");
-                    BreakLink(old, "replaced");
-                }
+            {
+                var old = LinkOf(p);
+                if (old == null) continue;
+                NextGenPatchPanelsMod.Log.Warning($"'{p.patchPanelId}' was still linked by cable {old.CableId}; dropping that link.");
+                BreakLink(old, "replaced");
+            }
 
             var (owner, other) = string.CompareOrdinal(a.patchPanelId, b.patchPanelId) <= 0 ? (a, b) : (b, a);
             var ownerType = Templates.Of(owner);
@@ -166,10 +200,10 @@ namespace NextGenPatchPanels
             ByPanel[link.OtherId] = link;
 
             SetPortIds(link, true); // new cables on the other panel join straight away
-            Schedule(link, true, IsLoading() ? AfterLoadDelay : ReconcileDelay);
+            Schedule(IsLoading() ? AfterLoadDelay : ReconcileDelay, "trunk linked");
             PendingRedraws.Add(cableId); // its trunk look; not from inside the game's cable code
 
-            NextGenPatchPanelsMod.Log.Msg($"Trunk cable {cableId} links '{link.OwnerId}' and '{link.OtherId}' ({link.Ports} ports).");
+            NextGenPatchPanelsMod.Log.Msg($"Trunk cable {cableId} links '{link.OwnerId}' at {Where(owner.transform.position)} and '{link.OtherId}' at {Where(other.transform.position)} ({link.Ports} ports).");
             if (!IsLoading()) Message($"Trunk linked: {link.Ports} ports");
         }
 
@@ -180,13 +214,22 @@ namespace NextGenPatchPanels
             if (ByPanel.TryGetValue(link.OwnerId, out var l1) && l1 == link) ByPanel.Remove(link.OwnerId);
             if (ByPanel.TryGetValue(link.OtherId, out var l2) && l2 == link) ByPanel.Remove(link.OtherId);
             if (link.Other != null) SetPortIds(link, false);
-            Schedule(link, false, ReconcileDelay);
+            Schedule(ReconcileDelay, "trunk unlinked");
             NextGenPatchPanelsMod.Log.Msg($"Trunk link '{link.OwnerId}' - '{link.OtherId}' broken ({reason}).");
             if (!IsLoading()) Message("Trunk unlinked");
         }
 
         static bool IsSame(Link l, PatchPanel a, PatchPanel b) =>
-            (l.OwnerId == a.patchPanelId && l.OtherId == b.patchPanelId) || (l.OwnerId == b.patchPanelId && l.OtherId == a.patchPanelId);
+            (Same(l.Owner, a) && Same(l.Other, b)) || (Same(l.Owner, b) && Same(l.Other, a));
+
+        static bool Same(PatchPanel x, PatchPanel y) => x != null && y != null && x.Pointer == y.Pointer;
+
+        // The live link this panel is part of, if any.
+        static Link LinkOf(PatchPanel panel)
+        {
+            if (panel == null || string.IsNullOrEmpty(panel.patchPanelId)) return null;
+            return ByPanel.TryGetValue(panel.patchPanelId, out var link) && (Same(link.Owner, panel) || Same(link.Other, panel)) ? link : null;
+        }
 
         // The other panel's ports carry the owner's IDs while linked, their own otherwise.
         static void SetPortIds(Link link, bool linked)
@@ -196,12 +239,11 @@ namespace NextGenPatchPanels
                 ports[k].switchID = PortId(linked ? link.OwnerId : link.OtherId, k);
         }
 
-        // ---- moving existing cables ----
+        // ---- keeping cable names right ----
 
-        static void Schedule(Link link, bool linked, float delay)
+        static void Schedule(float delay, string why)
         {
-            Pending.RemoveAll(p => p.link == link);
-            Pending.Add((link, linked));
+            if (!_reconcileWhy.Contains(why)) _reconcileWhy.Add(why);
             float at = Time.realtimeSinceStartup + delay;
             if (_reconcileAt < 0f || at > _reconcileAt) _reconcileAt = at;
         }
@@ -214,17 +256,10 @@ namespace NextGenPatchPanels
             if (_reconcileAt < 0f || Time.realtimeSinceStartup < _reconcileAt) return;
             if (IsLoading()) { _reconcileAt = Time.realtimeSinceStartup + AfterLoadDelay; return; }
             _reconcileAt = -1f;
-
-            var work = Pending.ToList();
-            Pending.Clear();
-            // Live links are always re-checked: after a load, vanilla's own repairs may have renamed cable ends.
-            foreach (var link in ByCable.Values)
-                if (!work.Any(w => w.link == link)) work.Add((link, true));
-            foreach (var (link, linked) in work)
-            {
-                try { Reconcile(link, linked); }
-                catch (Exception e) { NextGenPatchPanelsMod.Log.Error($"Moving cables for '{link.OwnerId}' - '{link.OtherId}': {e}"); }
-            }
+            var why = string.Join(", ", _reconcileWhy);
+            _reconcileWhy.Clear();
+            try { Reconcile(why); }
+            catch (Exception e) { NextGenPatchPanelsMod.Log.Error($"Checking trunk panel cables ({why}): {e}"); }
         }
 
         static void Redraw()
@@ -239,58 +274,50 @@ namespace NextGenPatchPanels
             }
         }
 
-        // Every cable end on port k of either panel should name the owner's port k while linked; when not,
-        // the ends on the other panel go back to its own port k.
-        static void Reconcile(Link link, bool linked)
+        // Every cable end plugged into a trunk panel gets the name of the port it is in: the owner's port k
+        // while the panel is linked, its own port k otherwise, and the panel's trunk ID on its trunk port.
+        static void Reconcile(string why)
         {
             var wis = WaypointInitializationSystem.Instance;
             var map = NetworkMap.instance;
             if (wis == null || map == null) return;
-            if (linked && (link.Owner == null || link.Other == null)) return;
 
-            var ownerPorts = link.Owner == null ? null : Ports(link.Owner);
-            var otherPorts = link.Other == null ? null : Ports(link.Other);
-
-            var portOf = new Dictionary<string, int>();
-            for (int k = 0; k < link.Ports; k++)
+            var portSpots = new List<(Vector3 pos, string want)>();
+            var trunkSpots = new List<(Vector3 pos, string want)>();
+            foreach (var panel in PanelsInScene(true))
             {
-                portOf[PortId(link.OwnerId, k)] = k;
-                portOf[PortId(link.OtherId, k)] = k;
+                var id = panel.patchPanelId;
+                if (string.IsNullOrEmpty(id)) continue;
+                var link = LinkOf(panel);
+                var ports = Ports(panel);
+                for (int k = 0; k < ports.Count; k++)
+                    portSpots.Add((ports[k].transform.position, PortId(link != null && k < link.Ports ? link.OwnerId : id, k)));
+                var trunk = TrunkPort(panel);
+                if (trunk != null) trunkSpots.Add((trunk.transform.position, id + TrunkSuffix));
             }
+            if (portSpots.Count == 0) return;
 
             var changed = new List<WaypointInitializationSystem.CableInfo>();
-            var speeds = new List<string>();
+            var notes = new List<string>();
+            int ends = 0;
             var all = wis.GetAllCables(); // a copy; UpdateCableInfo writes back to the live table
             for (int c = 0; c < all.Count; c++)
             {
                 var info = all[c];
-                if (info.CableID == link.CableId) continue;
                 bool dirty = false;
                 for (int e = 0; e < 2; e++)
                 {
                     var end = e == 0 ? info.StartPoint : info.EndPoint;
-                    if (end.Type != CableLink.TypeOfLink.Switch || end.SwitchID == null || !portOf.TryGetValue(end.SwitchID, out int k)) continue;
+                    if (end.Type != CableLink.TypeOfLink.Switch || end.SwitchID == null || !end.SwitchID.Contains("PatchPanel")) continue;
+                    var want = IsTrunkId(end.SwitchID) ? Nearest(trunkSpots, end.Position, TrunkSnap) : Nearest(portSpots, end.Position, PortSnap);
+                    if (want == null || end.SwitchID == want) continue;
 
-                    if (speeds.Count < 6)
-                    {
-                        var far = e == 0 ? info.EndPoint : info.StartPoint;
-                        speeds.Add($"cable {info.CableID} to '{(string.IsNullOrEmpty(far.SwitchID) ? far.ServerID : far.SwitchID)}' max {info.MaxSpeed}");
-                    }
-
-                    string want;
-                    if (linked) want = PortId(link.OwnerId, k);
-                    else
-                    {
-                        float toOwner = Distance(end.Position, ownerPorts, k);
-                        float toOther = Distance(end.Position, otherPorts, k);
-                        want = PortId(toOther < toOwner ? link.OtherId : link.OwnerId, k);
-                    }
-                    if (end.SwitchID == want) continue;
-
+                    if (notes.Count < 12) notes.Add($"cable {info.CableID} '{end.SwitchID}' -> '{want}'");
                     end.SwitchID = want;
                     if (e == 0) info.StartPoint = end;
                     else info.EndPoint = end;
                     dirty = true;
+                    ends++;
                 }
                 if (!dirty) continue;
                 wis.UpdateCableInfo(info.CableID, info);
@@ -300,29 +327,49 @@ namespace NextGenPatchPanels
             _busy = true;
             try
             {
-                // NetworkMap keeps its own copy of each cable's ends; re-register the moved ones.
+                // NetworkMap keeps its own copy of each cable's ends; re-register the renamed ones.
                 foreach (var info in changed)
                 {
                     map.RemoveCableConnection(info.CableID, true);
                     wis.RegisterCableInNetworkMap(info);
                 }
                 // Vanilla registers every port as a device when a panel is racked; keep that true.
-                for (int k = 0; k < link.Ports; k++)
-                {
-                    EnsureDevice(map, PortId(link.OwnerId, k));
-                    if (!linked) EnsureDevice(map, PortId(link.OtherId, k));
-                }
+                foreach (var want in portSpots.Select(s => s.want).Distinct())
+                    EnsureDevice(map, want);
             }
             finally { _busy = false; }
 
             wis.cablePairLookupDirty = true;
             wis.RequestRouteEvaluation();
-            NextGenPatchPanelsMod.Log.Msg($"Trunk '{link.OwnerId}' - '{link.OtherId}' {(linked ? "linked" : "unlinked")}: moved {changed.Count} cable(s)" +
-                                          (speeds.Count > 0 ? $"; {string.Join("; ", speeds)}" : "") + ".");
+            NextGenPatchPanelsMod.Log.Msg($"Trunk panel cables checked ({why}): {ByCable.Count} link(s), renamed {ends} cable end(s)" +
+                                          (notes.Count > 0 ? $": {string.Join("; ", notes)}{(ends > notes.Count ? "; ..." : "")}" : "") + ".");
         }
 
-        static float Distance(Vector3 pos, List<CableLink> ports, int k) =>
-            ports == null || k >= ports.Count ? float.MaxValue : Vector3.Distance(pos, ports[k].transform.position);
+        static string Nearest(List<(Vector3 pos, string want)> spots, Vector3 pos, float within)
+        {
+            string best = null;
+            float bestDistance = within;
+            foreach (var (spot, want) in spots)
+            {
+                float d = Vector3.Distance(spot, pos);
+                if (d < bestDistance) { bestDistance = d; best = want; }
+            }
+            return best;
+        }
+
+        static PatchPanel PanelWithTrunkAt(List<PatchPanel> panels, Vector3 pos)
+        {
+            PatchPanel best = null;
+            float bestDistance = TrunkSnap;
+            foreach (var p in panels)
+            {
+                var trunk = TrunkPort(p);
+                if (trunk == null) continue;
+                float d = Vector3.Distance(trunk.transform.position, pos);
+                if (d < bestDistance) { bestDistance = d; best = p; }
+            }
+            return best;
+        }
 
         static void EnsureDevice(NetworkMap map, string id)
         {
@@ -339,10 +386,12 @@ namespace NextGenPatchPanels
             if (ByPanel.Count == 0 || __0 == null) return;
             try
             {
-                if (Templates.Of(__instance) == null || !ByPanel.TryGetValue(__instance.patchPanelId, out var link)) return;
+                if (Templates.Of(__instance) == null) return;
+                var link = LinkOf(__instance);
+                if (link == null) return;
                 int k = Ports(__instance).FindIndex(p => p.Pointer == __0.Pointer);
                 if (k < 0 || k >= link.Ports) return;
-                var partner = link.OwnerId == __instance.patchPanelId ? link.Other : link.Owner;
+                var partner = Same(link.Owner, __instance) ? link.Other : link.Owner;
                 if (partner == null) return;
                 var partnerPorts = Ports(partner);
                 if (k < partnerPorts.Count) __result = partnerPorts[k];
@@ -364,6 +413,8 @@ namespace NextGenPatchPanels
             return wis != null && wis.isLoading;
         }
 
+        static string Where(Vector3 p) => $"({p.x:F2}, {p.y:F2}, {p.z:F2})";
+
         public static CableLink TrunkPort(PatchPanel panel)
         {
             var t = panel.transform.Find(Templates.TrunkPortName);
@@ -383,13 +434,27 @@ namespace NextGenPatchPanels
             return list;
         }
 
+        // Panels in the world (not templates or prefabs); trunk panels only, or all of them.
+        static List<PatchPanel> PanelsInScene(bool trunkOnly)
+        {
+            var list = new List<PatchPanel>();
+            foreach (var p in Resources.FindObjectsOfTypeAll<PatchPanel>())
+            {
+                if (p == null || !p.gameObject.activeInHierarchy || string.IsNullOrEmpty(p.gameObject.scene.name)) continue;
+                if (trunkOnly && Templates.Of(p) == null) continue;
+                list.Add(p);
+            }
+            return list;
+        }
+
+        // By name: only used when no trunk port is where the cable ends.
         static PatchPanel FindPanel(string trunkId)
         {
             var id = trunkId.Substring(0, trunkId.Length - TrunkSuffix.Length);
             if (LivePanels.TryGetValue(id, out var p) && p != null && p.patchPanelId == id) return p;
-            foreach (var panel in Resources.FindObjectsOfTypeAll<PatchPanel>())
+            foreach (var panel in PanelsInScene(true))
             {
-                if (panel == null || string.IsNullOrEmpty(panel.gameObject.scene.name) || panel.patchPanelId != id) continue;
+                if (panel.patchPanelId != id) continue;
                 LivePanels[id] = panel;
                 return panel;
             }

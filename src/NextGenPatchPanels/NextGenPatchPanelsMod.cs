@@ -2,7 +2,7 @@ using System;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(NextGenPatchPanels.NextGenPatchPanelsMod), "Next-Gen Patch Panels", "1.0.0", "checkersx")]
+[assembly: MelonInfo(typeof(NextGenPatchPanels.NextGenPatchPanelsMod), "Next-Gen Patch Panels", "1.0.1", "checkersx")]
 [assembly: MelonGame("Waseku", "Data Center")]
 
 namespace NextGenPatchPanels
